@@ -1,0 +1,273 @@
+<html>
+<style>
+	.palettecolor {
+		width: 10px;
+		height: 10px;
+		float: left;
+		margin: 2.5px;
+	}
+
+	.paletterow {
+		padding: 2.5px;
+	}
+</style>
+
+<body style="background-color: #000000;">
+	<canvas id="can_saved" width="1024" height="1024" style="position:absolute;top:0%;left:0%;border:0px solid; background-color: #ffffff"></canvas>
+	<canvas id="can" width="1024" height="1024" style="position:absolute;top:0%;left:0%;border:0px solid; "></canvas>
+	<div style="position:absolute;top:20px;left:20px;background:#ffffff; border: 1px solid; border-radius:5px; padding-bottom: 4px">
+		<div class="paletterow">
+			<div class="palettecolor" style="background:#ff4040;" onclick="color(this)"></div>
+			<div class="palettecolor" style="background:#ffa040;" onclick="color(this)"></div>
+			<div class="palettecolor" style="background:#ffff40;" onclick="color(this)"></div>
+			<div class="palettecolor" style="background:#a0ff40;" onclick="color(this)"></div>
+			<div class="palettecolor" style="background:#40ff40;" onclick="color(this)"></div>
+			<div class="palettecolor" style="background:#40ffa0;" onclick="color(this)"></div>
+			<div class="palettecolor" style="background:#40a0ff;" onclick="color(this)"></div>
+			<div class="palettecolor" style="background:#4040ff;" onclick="color(this)"></div>
+			<div class="palettecolor" style="background:#ffffff; border:1px solid; margin: 1.5px" onclick="color(this)" id="white"></div>
+		</div>
+		<div class="paletterow">
+			<div class="palettecolor" style="background:#ff0000;" onclick="color(this)"></div>
+			<div class="palettecolor" style="background:#ff8000;" onclick="color(this)"></div>
+			<div class="palettecolor" style="background:#ffff00;" onclick="color(this)"></div>
+			<div class="palettecolor" style="background:#80ff00;" onclick="color(this)"></div>
+			<div class="palettecolor" style="background:#00ff00;" onclick="color(this)"></div>
+			<div class="palettecolor" style="background:#00ff80;" onclick="color(this)"></div>
+			<div class="palettecolor" style="background:#0080ff;" onclick="color(this)"></div>
+			<div class="palettecolor" style="background:#0000ff;" onclick="color(this)"></div>
+			<div class="palettecolor" style="background:#606060; border:1px solid; margin: 1.5px" onclick="color(this)"></div>
+		</div>
+		<div class="paletterow">
+			<div class="palettecolor" style="background:#800000;" onclick="color(this)"></div>
+			<div class="palettecolor" style="background:#804000;" onclick="color(this)"></div>
+			<div class="palettecolor" style="background:#808000;" onclick="color(this)"></div>
+			<div class="palettecolor" style="background:#408000;" onclick="color(this)"></div>
+			<div class="palettecolor" style="background:#008000;" onclick="color(this)"></div>
+			<div class="palettecolor" style="background:#008040;" onclick="color(this)"></div>
+			<div class="palettecolor" style="background:#004080;" onclick="color(this)"></div>
+			<div class="palettecolor" style="background:#000080;" onclick="color(this)"></div>
+			<div class="palettecolor" style="background:#000000; border:1px solid; margin: 1.5px" onclick="color(this)" id="black"></div>
+		</div>
+	</div>
+	<div style="position:fixed;top:80px;left:20px;background:#ffffff; border: 1px solid; border-radius:5px">
+		<div style="margin:5px;width:50px;height:50px;background:#ffffff; border: 1px solid; border-radius:50px" id="size_50" onclick="size(50)"></div>
+		<div style="margin:5px;margin-left:calc(50% - 13px);width:25px;height:25px;background:#ffffff; border: 1px solid; border-radius:25px" id="size_25" onclick="size(25)"></div>
+		<div style="margin:5px;margin-left:calc(50% - 6px);width:10px;height:10px;background:#ffffff; border: 1px solid; border-radius:10px" id="size_10" onclick="size(10)"></div>
+	</div>
+	<img id="canvasimg" style="position:absolute;top:10%;left:52%;" style="display:none;">
+	<script type="text/javascript">
+		var drawing, canvas, canvas_saved, ctx, ctx_saved, flag = false,
+			prevX = 0,
+			currX = 0,
+			prevY = 0,
+			currY = 0,
+			dot_flag = false;
+		var edited = false;
+		var editing = false;
+		var sending = false;
+		var colorx = "#000000",
+			brush_rad = 10;
+		var ctrlClicked = false;
+		var $_GET = {};
+		var timer, savetimer = false;
+		var cur_hash = ''
+
+		function distanceBetween(point1, point2) {
+			return Math.sqrt(Math.pow(point2.x - point1.x, 2) + Math.pow(point2.y - point1.y, 2));
+		}
+
+		function angleBetween(point1, point2) {
+			return Math.atan2(point2.x - point1.x, point2.y - point1.y);
+		}
+
+		var el = document.getElementById('can');
+		var ctx = el.getContext('2d');
+		ctx.lineJoin = ctx.lineCap = 'round';
+
+		var isDrawing, lastPoint;
+
+		el.onmousedown = function(e) {
+			isDrawing = true;
+			edited = true;
+			editing = true;
+			lastPoint = {
+				x: e.clientX,
+				y: e.clientY
+			};
+		};
+
+		el.onmousemove = function(e) {
+			if (!isDrawing) return;
+
+			var currentPoint = {
+				x: e.clientX,
+				y: e.clientY
+			};
+			var dist = distanceBetween(lastPoint, currentPoint);
+			var angle = angleBetween(lastPoint, currentPoint);
+
+			for (var i = 0; i < dist; i += 3) {
+
+				x = 0.001 + lastPoint.x + (Math.sin(angle) * i);
+				y = 0.001 + lastPoint.y + (Math.cos(angle) * i);
+
+				var radgrad = ctx.createRadialGradient(x, y, 0, x, y, brush_rad);
+
+				radgrad.addColorStop(0, toRgbA(colorx, 1));
+				radgrad.addColorStop(0.5, toRgbA(colorx, 0.5));
+				radgrad.addColorStop(1, toRgbA(colorx, 0));
+				ctx.fillStyle = radgrad;
+				ctx.fillRect(x - brush_rad, y - brush_rad, brush_rad * 2, brush_rad * 2);
+			}
+
+			edited = true;
+			editing = true;
+			lastPoint = currentPoint;
+		};
+
+		el.onmouseup = function() {
+			isDrawing = false;
+			editing = false;
+		};
+
+		function toRgbA(hex, opacity) {
+			var c;
+			if (/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)) {
+				c = hex.substring(1).split('');
+				if (c.length == 3) {
+					c = [c[0], c[0], c[1], c[1], c[2], c[2]];
+				}
+				c = '0x' + c.join('');
+				return 'rgba(' + [(c >> 16) & 255, (c >> 8) & 255, c & 255].join(',') + ',' + opacity + ')';
+			}
+			return hex.replace(')', ', ' + opacity + ')').replace('rgb', 'rgba');
+		}
+
+		function init() {
+			canvas_saved = document.getElementById('can_saved');
+			canvas = el;
+			ctx = ctx;
+			ctx_saved = canvas_saved.getContext("2d");
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+			var parts = window.location.search.substr(1).split("&");
+			for (var i = 0; i < parts.length; i++) {
+				var temp = parts[i].split("=");
+				$_GET[decodeURIComponent(temp[0])] = decodeURIComponent(temp[1]);
+			}
+			if ($_GET.file == undefined) {
+				$_GET['file'] = 'default';
+			}
+			reloadImage();
+			savetimer = setTimeout(save, 1000);
+
+			w = canvas.width;
+			h = canvas.height;
+			color(document.getElementById('black'));
+			size(10);
+		}
+
+		function getRandomInt(min, max) {
+			min = Math.ceil(min);
+			max = Math.floor(max);
+			return Math.floor(Math.random() * (max - min)) + min;
+		}
+
+		function reloadImage() {
+			var xhr = new XMLHttpRequest();
+			if (edited == false) {
+				xhr.open('GET', 'timestamp.php?file=' + $_GET.file, true);
+				xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+				xhr.onreadystatechange = function() {
+					if (xhr.readyState == 4) {
+						var new_hash = '';
+						if (xhr.status == 200 || xhr.status == 304) {
+							new_hash = xhr.responseText;
+						}
+						if (cur_hash != new_hash || new_hash == '') {
+							cur_hash = new_hash;
+							if (edited == false) {
+								drawing = new Image();
+								drawing.src = $_GET.file + '.png?' + cur_hash;
+								drawing.onload = function() {
+									ctx_saved.drawImage(drawing, 0, 0);
+									timer = setTimeout(reloadImage, 1000);
+								};
+							} else {
+								timer = setTimeout(reloadImage, 1000);
+							}
+						} else {
+							timer = setTimeout(reloadImage, 1000);
+						}
+					}
+				}
+				xhr.send();
+			} else {
+				timer = setTimeout(reloadImage, 1000);
+			}
+		}
+
+		function erase() {
+			var m = confirm("Want to clear");
+			if (m) {
+				ctx.clearRect(0, 0, w, h);
+				//document.getElementById("canvasimg").style.display = "none";
+			}
+			edited = false;
+		}
+
+		function save() {
+			savetimer = setTimeout(save, 1000);
+			if (edited == true && editing == false) {
+				if (sending == false) {
+					var dataURL = canvas.toDataURL('image/png', 0);
+
+					var url = "graffiti_overlay.php";
+					var params = "file=" + $_GET.file + "&imgdata=" + encodeURIComponent(dataURL);
+					var xhr = new XMLHttpRequest();
+					sending = true;
+					xhr.open('POST', url, true);
+					xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+					xhr.onreadystatechange = function() {
+						if (xhr.readyState == 4 && xhr.status == 200) {
+							sending = false;
+						}
+					}
+					xhr.send(params);
+				}
+				edited = false;
+				if (editing == false) {
+					clearTimeout(timer);
+					reloadImage()
+				}
+			}
+		}
+
+		function size(width) {
+			brush_rad = width * 0.5;
+			var s50 = document.getElementById('size_50')
+			var s25 = document.getElementById('size_25')
+			var s10 = document.getElementById('size_10')
+			s50.style.width = s50.style.height = '50px';
+			s25.style.width = s25.style.height = '25px';
+			s10.style.width = s10.style.height = '10px';
+			s50.style.borderWidth = '1px';
+			s25.style.borderWidth = '1px';
+			s10.style.borderWidth = '1px';
+			document.getElementById('size_' + width).style.borderWidth = '3px';
+			document.getElementById('size_' + width).style.width = width - 4 + 'px';
+			document.getElementById('size_' + width).style.height = width - 4 + 'px';
+		}
+
+		function color(obj) {
+			colorx = obj.style.background;
+			ctrlClicked = true;
+			document.getElementById('size_50').style.background = toRgbA(colorx, 0.5);
+			document.getElementById('size_25').style.background = toRgbA(colorx, 0.5);
+			document.getElementById('size_10').style.background = toRgbA(colorx, 0.5);
+		}
+		init();
+	</script>
+</body>
+
+</html>
